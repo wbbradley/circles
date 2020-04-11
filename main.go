@@ -21,7 +21,7 @@ type CircleTree struct {
 }
 
 const (
-	imgSize        = 10000
+	imgSize        = 1000
 	minCircleSize  = imgSize / 200.0
 	subCircleCount = 100
 )
@@ -53,17 +53,14 @@ func calcMaxRadiusFrom(x, y float64, siblings []*CircleTree) float64 {
 	return radius
 }
 
-func addCircle(tree *CircleTree, depth int) {
+func addCircle(tree *CircleTree, depth int, c1, c2 color.RGBA) {
 	var child *CircleTree = nil
 
 	for {
 		circle := &Circle{
-			x: rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.x,
-			y: rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.y,
-			color: color.RGBA{uint8(rand.Float64()*192 + 32),
-				uint8(rand.Float64()*192 + 32),
-				uint8(rand.Float64()*192 + 32),
-				0xff},
+			x:     rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.x,
+			y:     rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.y,
+			color: c1,
 		}
 		distance := dist(tree.papa, circle)
 		if distance >= tree.papa.radius-minCircleSize {
@@ -82,7 +79,7 @@ func addCircle(tree *CircleTree, depth int) {
 		break
 	}
 	if depth > 0 && child.papa.radius > minCircleSize*2.1 {
-		addCircle(child, depth-1)
+		addCircle(child, depth-1, c2, c1)
 	}
 }
 
@@ -94,11 +91,9 @@ func min(x, y float64) float64 {
 	}
 }
 
-func populateTree(tree *CircleTree) {
-	addCircle(tree, 10)
-
+func populateTree(tree *CircleTree, c1, c2 color.RGBA) {
 	for i := 0; i < subCircleCount; i++ {
-		addCircle(tree, subCircleCount)
+		addCircle(tree, 10, c1, c2)
 	}
 }
 
@@ -116,13 +111,14 @@ func main() {
 	var thickness float64 = 4.0
 	width := float64(imgSize)
 	height := float64(imgSize)
-	pink := color.RGBA{0xff, 0xcc, 0xcc, 0xff}
+	white := color.RGBA{0xff, 0xff, 0xff, 0xff}
+	black := color.RGBA{0x0, 0x0, 0x0, 0xff}
 	tree := &CircleTree{
 		papa: &Circle{
 			x:      width / 2.0,
 			y:      height / 2.0,
 			radius: width/2.0 - thickness*2.0,
-			color:  pink,
+			color:  black,
 		},
 		babies: nil,
 	}
@@ -143,7 +139,7 @@ func main() {
 
 	gc.SetLineWidth(thickness)
 
-	populateTree(tree)
+	populateTree(tree, white, black)
 	drawTree(gc, tree)
 
 	// Save to file
