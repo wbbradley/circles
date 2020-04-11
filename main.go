@@ -11,8 +11,9 @@ import (
 )
 
 type Circle struct {
-	x, y, radius float64
-	color        color.RGBA
+	center Vector2D
+	radius float64
+	color  color.RGBA
 }
 
 type CircleTree struct {
@@ -21,16 +22,18 @@ type CircleTree struct {
 }
 
 const (
-	imgSize        = 1000
+	imgSize        = 4000
 	minCircleSize  = imgSize / 200.0
 	subCircleCount = 100
 )
 
 func drawCircle(gc *draw2dimg.GraphicContext, rootCircle *Circle) {
 	gc.BeginPath()
-	gc.SetFillColor(rootCircle.color)
-	draw2dkit.Circle(gc, rootCircle.x, rootCircle.y, rootCircle.radius)
-	gc.Fill()
+	// gc.SetFillColor(rootCircle.color)
+	// gc.SetStrokeColor(rootCircle.color)
+	gc.SetStrokeColor(color.RGBA{A: 0xff})
+	draw2dkit.Circle(gc, rootCircle.center.x, rootCircle.center.y, rootCircle.radius)
+	gc.Stroke()
 }
 
 func distance(x1, y1, x2, y2 float64) float64 {
@@ -38,13 +41,13 @@ func distance(x1, y1, x2, y2 float64) float64 {
 }
 
 func dist(a, b *Circle) float64 {
-	return distance(a.x, a.y, b.x, b.y)
+	return distance(a.center.x, a.center.y, b.center.x, b.center.y)
 }
 
 func calcMaxRadiusFrom(x, y float64, siblings []*CircleTree) float64 {
 	radius := 10000000.0
 	for _, sibling := range siblings {
-		siblingCenterDist := distance(x, y, sibling.papa.x, sibling.papa.y)
+		siblingCenterDist := distance(x, y, sibling.papa.center.x, sibling.papa.center.y)
 		if siblingCenterDist < sibling.papa.radius {
 			return 0.0
 		}
@@ -57,22 +60,26 @@ func addCircle(tree *CircleTree, depth int, c1, c2 color.RGBA) {
 	var child *CircleTree = nil
 
 	for {
-		circle := &Circle{
-			x:     rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.x,
-			y:     rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.y,
+		circle := Circle{
+			center: Vector2D{
+				rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.center.x,
+				rand.Float64()*tree.papa.radius*2 - tree.papa.radius + tree.papa.center.y,
+			},
 			color: c1,
 		}
-		distance := dist(tree.papa, circle)
+
+		distance := dist(tree.papa, &circle)
 		if distance >= tree.papa.radius-minCircleSize {
 			continue
 		}
-		maxRadius := min(distance, calcMaxRadiusFrom(circle.x, circle.y, tree.babies))
+		maxRadius := min(distance, calcMaxRadiusFrom(circle.center.x,
+			circle.center.y, tree.babies))
 		if maxRadius < minCircleSize {
 			continue
 		}
 		circle.radius = min(tree.papa.radius-distance, maxRadius)
 		child = &CircleTree{
-			papa:   circle,
+			papa:   &circle,
 			babies: nil,
 		}
 		tree.babies = append(tree.babies, child)
@@ -91,9 +98,49 @@ func min(x, y float64) float64 {
 	}
 }
 
+type Vector2D struct {
+	x, y float64
+}
+
+func sub(a, b *Vector2D) Vector2D {
+	return Vector2D{a.x - b.x, a.y - b.y}
+}
+
+func add(a, b *Vector2D) Vector2D {
+	return Vector2D{a.x + b.x, a.y + b.y}
+}
+
+func normalize(a *Vector2D) {
+	dist := math.Sqrt(a.x*a.x + a.y*a.y)
+	a.x /= dist
+	a.y /= dist
+}
+
+func radiusForFiller(p, outerRadius float64) float64 {
+	return math.Sin(p) * outerRadius
+}
+
 func populateTree(tree *CircleTree, c1, c2 color.RGBA) {
-	for i := 0; i < subCircleCount; i++ {
-		addCircle(tree, 10, c1, c2)
+	addCircle(tree, 0, c1, c2)
+	papa := tree.papa
+	child := tree.babies[0].papa
+	vec := sub(&child.center, &papa.center)
+	normalize(&vec)
+	angle := math.Atan2(vec.y, vec.x)
+	for theta := 0.01; theta < math.Pi*2; theta += math.Pi / 20.0 {
+		p := angle + theta
+		newCenter := add(&child.center, &Vector2D{
+			math.Cos(p) * child.radius,
+			math.Sin(p) * child.radius,
+		})
+		tree.babies = append(tree.babies, &CircleTree{
+			papa: &Circle{
+				center: newCenter,
+				radius: radiusForFiller(theta, 100.0), //child.radius),
+				color:  child.color,
+			},
+			babies: nil,
+		})
 	}
 }
 
@@ -115,8 +162,10 @@ func main() {
 	black := color.RGBA{0x0, 0x0, 0x0, 0xff}
 	tree := &CircleTree{
 		papa: &Circle{
-			x:      width / 2.0,
-			y:      height / 2.0,
+			center: Vector2D{
+				x: width / 2.0,
+				y: height / 2.0,
+			},
 			radius: width/2.0 - thickness*2.0,
 			color:  black,
 		},
