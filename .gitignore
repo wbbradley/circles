@@ -3,3 +3,4 @@ pkg
 src
 bin
 *.png
+go.sum

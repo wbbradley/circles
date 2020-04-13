@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/llgcode/draw2d/draw2dimg"
@@ -25,18 +26,19 @@ type CircleTree struct {
 }
 
 const (
-	imgSize        = 2000
-	maxDepth       = 12
-	maxRadiusRatio = 0.95
-	minRadiusRatio = 0.5
-	increment      = 0.125 / 2.0
+	depthJump      = 1
+	imgSize        = 10000
+	maxDepth       = 15
+	maxRadiusRatio = 0.85
+	minRadiusRatio = 0.55
+	increment      = 0.125 / 4.0
 )
 
 var (
 	treeNum       = 0
-	minCircleSize = 4.0
+	minCircleSize = float64(imgSize) / 500.0
 	thickness     = 1.0
-	palette       = genPalette(maxDepth) // colorful.WarmPalette(maxDepth)
+	palette       = genPalette2(maxDepth) // colorful.WarmPalette(maxDepth)
 )
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
@@ -53,23 +55,37 @@ type GradientTable []struct {
 }
 
 func genPalette(d int) []colorful.Color {
+	return []colorful.Color{
+		colorful.Color{
+			R: 0.3,
+			G: 0.4,
+			B: 0.45,
+		},
+		colorful.Color{
+			R: 1.0,
+			G: 1.0,
+			B: 1.0,
+		},
+	}
+}
+func genPalette2(d int) []colorful.Color {
 	keypoints := GradientTable{
-		{MustParseHex("#9e0142"), 0.0},
-		{MustParseHex("#d53e4f"), 0.1},
-		{MustParseHex("#f46d43"), 0.2},
-		{MustParseHex("#fdae61"), 0.3},
-		{MustParseHex("#fee090"), 0.4},
-		{MustParseHex("#ffffbf"), 0.5},
-		{MustParseHex("#e6f598"), 0.6},
-		{MustParseHex("#abdda4"), 0.7},
-		{MustParseHex("#66c2a5"), 0.8},
-		{MustParseHex("#3288bd"), 0.9},
-		{MustParseHex("#5e4fa2"), 1.0},
+		{MustParseHex("#fe8282"), 0.0},
+		{MustParseHex("#fe6262"), 0.3},
+		{MustParseHex("#eeebee"), 0.5},
+		{MustParseHex("#fe6262"), 0.8},
+		{MustParseHex("#eeebee"), 1.0},
+		// {MustParseHex("#e6f598"), 0.6},
+		// {MustParseHex("#abdda4"), 0.7},
+		// {MustParseHex("#66c2a5"), 0.8},
+		// {MustParseHex("#3288bd"), 0.9},
+		// {MustParseHex("#5e4fa2"), 1.0},
 	}
 	p := make([]colorful.Color, 0, d)
 	for i := 0; i < d; i++ {
 		p = append(p, keypoints.GetInterpolatedColorFor(float64(i)/float64(d)))
 	}
+
 	return p
 }
 
@@ -144,10 +160,7 @@ func ToRGBA(c colorful.Color) color.RGBA {
 }
 
 func randColor(depth int) color.RGBA {
-	if depth >= len(palette) {
-		panic("invalid depth")
-	}
-	return ToRGBA(palette[depth])
+	return ToRGBA(palette[depth%len(palette)])
 }
 
 func circlesIntersect(a, b *Circle) (Vector2D, Vector2D) {
@@ -166,6 +179,9 @@ func circlesIntersect(a, b *Circle) (Vector2D, Vector2D) {
 }
 
 func (t *CircleTree) validCircle(c *Circle) bool {
+	if distance(t.papa.center, c.center) < 0.5 {
+		return false
+	}
 	if c.radius < minCircleSize {
 		return false
 	}
@@ -277,12 +293,12 @@ func populateTree(tree *CircleTree, depth int) bool {
 	papa := tree.papa
 	childTree := tree.babies[len(tree.babies)-1]
 	child := childTree.papa
-	populateTree(childTree, depth+1)
+	populateTree(childTree, depth+depthJump)
 
 	// Compute radius of filling circle
 	b := papa.radius - child.radius
 	// fmt.Printf("papa.radius = %v\nchild.radius = %v\nb = %v\n", papa.radius, child.radius, b)
-	for r := 1.0; r < b; r += increment {
+	for r := b - 0.01; r >= 1.0; r -= increment {
 		shrunkPapa := Circle{
 			center: papa.center,
 			radius: papa.radius - r,
@@ -291,7 +307,7 @@ func populateTree(tree *CircleTree, depth int) bool {
 			center: child.center,
 			radius: child.radius + r,
 		}
-		p1, _ := circlesIntersect(&shrunkPapa, &extendedChild)
+		p1, p2 := circlesIntersect(&shrunkPapa, &extendedChild)
 
 		c1 := &Circle{
 			center: p1,
@@ -307,17 +323,7 @@ func populateTree(tree *CircleTree, depth int) bool {
 			tree.babies = append(tree.babies, newTree)
 			populateTree(newTree, depth+1)
 		}
-	}
-	for r := b - 1.0; r >= 1.0; r -= increment {
-		shrunkPapa := Circle{
-			center: papa.center,
-			radius: papa.radius - r,
-		}
-		extendedChild := Circle{
-			center: child.center,
-			radius: child.radius + r,
-		}
-		_, p2 := circlesIntersect(&shrunkPapa, &extendedChild)
+
 		c2 := &Circle{
 			center: p2,
 			radius: r,
@@ -352,7 +358,6 @@ func main() {
 	width := float64(imgSize)
 	height := float64(imgSize)
 	white := color.RGBA{0xff, 0xff, 0xff, 0xff}
-	// black := color.RGBA{0x0, 0x0, 0x0, 0xff}
 	tree := &CircleTree{
 		papa: &Circle{
 			center: Vector2D{
@@ -379,17 +384,20 @@ func main() {
 	gc.Close()
 	gc.Fill()
 
-	gc.SetLineWidth(thickness)
-
 	for {
-		if !populateTree(tree, 1) {
+		if !populateTree(tree, depthJump) {
 			break
 		}
 	}
 	fmt.Printf("\n")
 	drawTree(gc, tree)
 
+	filename := "circles.png"
+	if len(os.Args) == 2 {
+		filename = os.Args[1]
+	}
+
 	// Save to file
-	draw2dimg.SaveToPngFile("circle_tree.png", dest)
+	draw2dimg.SaveToPngFile(filename, dest)
 
 }
