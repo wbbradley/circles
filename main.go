@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"math"
 	"math/rand"
 	"os"
@@ -444,12 +446,37 @@ func main() {
 	fmt.Printf("\n")
 	drawTree(gc, tree)
 
-	filename := "circles.png"
-	if len(os.Args) == 2 {
-		filename = os.Args[1]
+	/*
+		filename := "circles.jpg"
+		if len(os.Args) == 2 {
+			filename = os.Args[1]
+		}
+
+		// Save to file
+		// draw2dimg.SaveToPngFile(filename, dest)
+	*/
+	SaveToJpegFile("circles.jpg", dest)
+
+}
+func SaveToJpegFile(filePath string, m image.Image) error {
+	// Create the file
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
 	}
-
-	// Save to file
-	draw2dimg.SaveToPngFile(filename, dest)
-
+	defer f.Close()
+	// Create Writer from file
+	b := bufio.NewWriter(f)
+	// Write the image into the buffer
+	err = jpeg.Encode(b, m, &jpeg.Options{
+		Quality: 95,
+	})
+	if err != nil {
+		return err
+	}
+	err = b.Flush()
+	if err != nil {
+		return err
+	}
+	return nil
 }

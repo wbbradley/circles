@@ -4,3 +4,4 @@ src
 bin
 *.png
 go.sum
+*.jpg
