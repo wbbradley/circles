@@ -27,7 +27,7 @@ type CircleTree struct {
 
 const (
 	depthJump      = 1
-	imgSize        = 5000
+	imgSize        = 8000
 	maxDepth       = 15
 	thetaIncrement = 0.0
 	maxRadiusRatio = 0.85
@@ -36,14 +36,21 @@ const (
 )
 
 var (
-	theta               = rand.Float64() * math.Pi * 2.0
+	theta               float64
 	black               = color.RGBA{0x0, 0x0, 0x0, 0xff}
 	explicitRadiusRatio = 1.61803398875 / 2.0
 	treeNum             = 0
-	minCircleSize       = float64(imgSize) / 1000.0
+	minCircleSize       = max(3.0, float64(imgSize)/2000.0)
 	thickness           = 1.0
-	palette             = genPalette2(maxDepth) // colorful.WarmPalette(maxDepth)
+	palette             []colorful.Color
 )
+
+func init() {
+	seed := time.Now().UnixNano()
+	rand.Seed(seed)
+	theta = rand.Float64() * math.Pi * 2.0
+	palette = genPalette2(maxDepth) // colorful.WarmPalette(maxDepth)
+}
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
 	gc.BeginPath()
@@ -75,12 +82,13 @@ func genPalette(d int) []colorful.Color {
 	}
 }
 func genPalette2(d int) []colorful.Color {
+	hue := rand.Float64() * 360.0
 	keypoints := GradientTable{
-		{colorful.Hsv(180.0, 0.3, 0.9), 0.0},
-		{colorful.Hsv(180.0, 0.3, 0.4), 0.3},
-		{colorful.Hsv(180.0, 0.0, 1.0), 0.5},
-		{colorful.Hsv(180.0, 0.3, 0.4), 0.8},
-		{colorful.Hsv(180.0, 0.3, 0.0), 1.0},
+		{colorful.Hsv(hue, 0.3, 0.9), 0.0},
+		{colorful.Hsv(hue, 0.3, 0.4), 0.3},
+		{colorful.Hsv(hue, 0.0, 1.0), 0.5},
+		{colorful.Hsv(hue, 0.3, 0.4), 0.8},
+		{colorful.Hsv(hue, 0.3, 0.0), 1.0},
 	}
 	p := make([]colorful.Color, 0, d)
 	for i := 0; i < d; i++ {
@@ -227,7 +235,8 @@ func getRadius(r float64) float64 {
 }
 
 func getTheta(depth int) float64 {
-	return lerp(float64(depth)/float64(maxDepth), 0, math.Pi*2.0)
+	return rand.Float64() * math.Pi * 2.0
+	// return lerp(float64(depth)/float64(maxDepth), 0, math.Pi*2.0)
 }
 
 func addCircle(tree *CircleTree, depth int) bool {
@@ -398,8 +407,6 @@ func drawTree2(gc *draw2dimg.GraphicContext, tree *CircleTree) {
 }
 
 func main() {
-	seed := time.Now().UnixNano()
-	rand.Seed(seed)
 	width := float64(imgSize)
 	height := float64(imgSize)
 	white := color.RGBA{0xff, 0xff, 0xff, 0xff}
