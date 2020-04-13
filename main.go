@@ -11,7 +11,7 @@ import (
 
 	"github.com/llgcode/draw2d/draw2dimg"
 	"github.com/llgcode/draw2d/draw2dkit"
-	"github.com/lucasb-eyer/go-colorful"
+	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
 type Circle struct {
@@ -27,26 +27,32 @@ type CircleTree struct {
 
 const (
 	depthJump      = 1
-	imgSize        = 10000
+	imgSize        = 5000
 	maxDepth       = 15
+	thetaIncrement = 0.0
 	maxRadiusRatio = 0.85
 	minRadiusRatio = 0.55
 	increment      = 0.125 / 4.0
 )
 
 var (
-	treeNum       = 0
-	minCircleSize = float64(imgSize) / 500.0
-	thickness     = 1.0
-	palette       = genPalette2(maxDepth) // colorful.WarmPalette(maxDepth)
+	theta               = rand.Float64() * math.Pi * 2.0
+	black               = color.RGBA{0x0, 0x0, 0x0, 0xff}
+	explicitRadiusRatio = 1.61803398875 / 2.0
+	treeNum             = 0
+	minCircleSize       = float64(imgSize) / 1000.0
+	thickness           = 1.0
+	palette             = genPalette2(maxDepth) // colorful.WarmPalette(maxDepth)
 )
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
 	gc.BeginPath()
 	gc.SetFillColor(c.color)
-	// gc.SetStrokeColor(color.RGBA{0, 0, 0, 255}) //c.color)
-	draw2dkit.Circle(gc, c.center.x, c.center.y, c.radius)
-	gc.Fill()
+	gc.SetStrokeColor(c.color)
+	gc.SetLineWidth(c.radius * 0.3)
+	// gc.SetStrokeColor(color.RGBA{0, 0, 0, 255})
+	draw2dkit.Circle(gc, c.center.x, c.center.y, c.radius*0.7)
+	gc.Stroke()
 }
 
 type GradientTable []struct {
@@ -69,6 +75,22 @@ func genPalette(d int) []colorful.Color {
 	}
 }
 func genPalette2(d int) []colorful.Color {
+	keypoints := GradientTable{
+		{colorful.Hsv(180.0, 0.3, 0.9), 0.0},
+		{colorful.Hsv(180.0, 0.3, 0.4), 0.3},
+		{colorful.Hsv(180.0, 0.0, 1.0), 0.5},
+		{colorful.Hsv(180.0, 0.3, 0.4), 0.8},
+		{colorful.Hsv(180.0, 0.3, 0.0), 1.0},
+	}
+	p := make([]colorful.Color, 0, d)
+	for i := 0; i < d; i++ {
+		p = append(p, keypoints.GetInterpolatedColorFor(float64(i)/float64(d)))
+	}
+
+	return p
+}
+
+func genPalette3(d int) []colorful.Color {
 	keypoints := GradientTable{
 		{MustParseHex("#fe8282"), 0.0},
 		{MustParseHex("#fe6262"), 0.3},
@@ -200,12 +222,20 @@ func lerp(a, x0, x1 float64) float64 {
 	return (x1-x0)*a + x0
 }
 
+func getRadius(r float64) float64 {
+	return lerp(rand.Float64(), minRadiusRatio, maxRadiusRatio) * r
+}
+
+func getTheta(depth int) float64 {
+	return lerp(float64(depth)/float64(maxDepth), 0, math.Pi*2.0)
+}
+
 func addCircle(tree *CircleTree, depth int) bool {
 	var child *CircleTree = nil
 
 	for i := 0; i < 1000; i += 1 {
-		theta := rand.Float64() * math.Pi * 2.0
-		radius := lerp(rand.Float64(), minRadiusRatio, maxRadiusRatio) * tree.papa.radius
+		radius := getRadius(tree.papa.radius)
+		theta = getTheta(depth)
 		circle := Circle{
 			center: Vector2D{
 				math.Cos(theta)*(tree.papa.radius-radius) + tree.papa.center.x,
@@ -339,6 +369,7 @@ func populateTree(tree *CircleTree, depth int) bool {
 			populateTree(newTree, depth+1)
 		}
 	}
+	theta += thetaIncrement
 	return true
 }
 
@@ -349,6 +380,20 @@ func drawTree(gc *draw2dimg.GraphicContext, tree *CircleTree) {
 	drawCircle(gc, tree.papa)
 	for _, baby := range tree.babies {
 		drawTree(gc, baby)
+	}
+	// drawTree2(gc, tree)
+}
+
+func drawTree2(gc *draw2dimg.GraphicContext, tree *CircleTree) {
+	if tree == nil {
+		return
+	}
+	for _, baby := range tree.babies {
+		gc.MoveTo(tree.papa.center.x, tree.papa.center.y)
+		gc.LineTo(baby.papa.center.x, baby.papa.center.y)
+		gc.SetStrokeColor(color.RGBA{0x22, 0x77, 0x24, 0xff})
+		gc.SetLineWidth(2.0)
+		gc.Stroke()
 	}
 }
 
