@@ -28,16 +28,22 @@ type CircleTree struct {
 }
 
 const (
-	depthJump      = 1
-	imgSize        = 8000
-	maxDepth       = 15
-	thetaIncrement = 0.0
-	maxRadiusRatio = 0.85
-	minRadiusRatio = 0.55
-	increment      = 0.125 / 4.0
+	randomTheta     = false
+	randomizeColors = false
+	depthJump       = 1
+	imgSize         = 2000
+	maxDepth        = 15
+	thetaIncrement  = 0.0
+	maxRadiusRatio  = 0.85
+	minRadiusRatio  = 0.55
+	increment       = 0.125 / 4.0
+	strokeWidth     = 1.0
+	radiusDrawScale = 0.5
+	fillCircles     = true
 )
 
 var (
+	genPalette          = genPalette3
 	theta               float64
 	black               = color.RGBA{0x0, 0x0, 0x0, 0xff}
 	explicitRadiusRatio = 1.61803398875 / 2.0
@@ -51,17 +57,21 @@ func init() {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
 	theta = rand.Float64() * math.Pi * 2.0
-	palette = genPalette2(maxDepth) // colorful.WarmPalette(maxDepth)
+	palette = genPalette(maxDepth) // colorful.WarmPalette(maxDepth)
 }
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
 	gc.BeginPath()
-	gc.SetFillColor(c.color)
-	gc.SetStrokeColor(c.color)
-	gc.SetLineWidth(c.radius * 0.3)
-	// gc.SetStrokeColor(color.RGBA{0, 0, 0, 255})
-	draw2dkit.Circle(gc, c.center.x, c.center.y, c.radius*0.7)
-	gc.Stroke()
+	if fillCircles {
+		gc.SetFillColor(c.color)
+		draw2dkit.Circle(gc, c.center.x, c.center.y, c.radius)
+		gc.Fill()
+	} else {
+		gc.SetStrokeColor(c.color)
+		gc.SetLineWidth(c.radius * strokeWidth)
+		draw2dkit.Circle(gc, c.center.x, c.center.y, c.radius*radiusDrawScale)
+		gc.Stroke()
+	}
 }
 
 type GradientTable []struct {
@@ -69,7 +79,7 @@ type GradientTable []struct {
 	Pos float64
 }
 
-func genPalette(d int) []colorful.Color {
+func genPalette1(d int) []colorful.Color {
 	return []colorful.Color{
 		colorful.Color{
 			R: 0.3,
@@ -102,16 +112,33 @@ func genPalette2(d int) []colorful.Color {
 
 func genPalette3(d int) []colorful.Color {
 	keypoints := GradientTable{
+		{MustParseHex("#9e0142"), 0.0},
+		{MustParseHex("#d53e4f"), 0.1},
+		{MustParseHex("#f46d43"), 0.2},
+		{MustParseHex("#fdae61"), 0.3},
+		{MustParseHex("#fee090"), 0.4},
+		{MustParseHex("#ffffbf"), 0.5},
+		{MustParseHex("#e6f598"), 0.6},
+		{MustParseHex("#abdda4"), 0.7},
+		{MustParseHex("#66c2a5"), 0.8},
+		{MustParseHex("#3288bd"), 0.9},
+		{MustParseHex("#5e4fa2"), 1.0},
+	}
+	p := make([]colorful.Color, 0, d)
+	for i := 0; i < d; i++ {
+		p = append(p, keypoints.GetInterpolatedColorFor(float64(i)/float64(d)))
+	}
+
+	return p
+}
+
+func genPalette4(d int) []colorful.Color {
+	keypoints := GradientTable{
 		{MustParseHex("#fe8282"), 0.0},
 		{MustParseHex("#fe6262"), 0.3},
 		{MustParseHex("#eeebee"), 0.5},
 		{MustParseHex("#fe6262"), 0.8},
 		{MustParseHex("#eeebee"), 1.0},
-		// {MustParseHex("#e6f598"), 0.6},
-		// {MustParseHex("#abdda4"), 0.7},
-		// {MustParseHex("#66c2a5"), 0.8},
-		// {MustParseHex("#3288bd"), 0.9},
-		// {MustParseHex("#5e4fa2"), 1.0},
 	}
 	p := make([]colorful.Color, 0, d)
 	for i := 0; i < d; i++ {
@@ -192,7 +219,11 @@ func ToRGBA(c colorful.Color) color.RGBA {
 }
 
 func randColor(depth int) color.RGBA {
-	return ToRGBA(palette[depth%len(palette)])
+	if randomizeColors {
+		return HSVtoRGBA(rand.Float64()*360.0, 0.5, 0.9)
+	} else {
+		return ToRGBA(palette[depth%len(palette)])
+	}
 }
 
 func circlesIntersect(a, b *Circle) (Vector2D, Vector2D) {
@@ -237,8 +268,11 @@ func getRadius(r float64) float64 {
 }
 
 func getTheta(depth int) float64 {
-	return rand.Float64() * math.Pi * 2.0
-	// return lerp(float64(depth)/float64(maxDepth), 0, math.Pi*2.0)
+	if randomTheta {
+		return rand.Float64() * math.Pi * 2.0
+	} else {
+		return lerp(float64(depth)/float64(maxDepth), 0, math.Pi*2.0)
+	}
 }
 
 func addCircle(tree *CircleTree, depth int) bool {
@@ -446,16 +480,7 @@ func main() {
 	fmt.Printf("\n")
 	drawTree(gc, tree)
 
-	/*
-		filename := "circles.jpg"
-		if len(os.Args) == 2 {
-			filename = os.Args[1]
-		}
-
-		// Save to file
-		// draw2dimg.SaveToPngFile(filename, dest)
-	*/
-	SaveToJpegFile("circles.jpg", dest)
+	SaveToJpegFile(fmt.Sprintf("circles-%v.jpg", time.Now().Unix()), dest)
 
 }
 func SaveToJpegFile(filePath string, m image.Image) error {

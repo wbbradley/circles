@@ -5,3 +5,4 @@ bin
 *.png
 go.sum
 *.jpg
+tags
