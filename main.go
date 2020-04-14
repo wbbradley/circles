@@ -28,29 +28,29 @@ type CircleTree struct {
 }
 
 const (
-	randomTheta     = false
+	randomTheta     = true
 	randomizeColors = false
 	depthJump       = 1
-	imgSize         = 2000
+	imgSize         = 5000
 	maxDepth        = 15
 	thetaIncrement  = 0.0
 	maxRadiusRatio  = 0.85
 	minRadiusRatio  = 0.55
 	increment       = 0.125 / 4.0
-	strokeWidth     = 1.0
-	radiusDrawScale = 0.5
-	fillCircles     = true
+	radiusDrawScale = 0.95
+	fillCircles     = false
 )
 
 var (
-	genPalette          = genPalette3
-	theta               float64
-	black               = color.RGBA{0x0, 0x0, 0x0, 0xff}
-	explicitRadiusRatio = 1.61803398875 / 2.0
-	treeNum             = 0
-	minCircleSize       = max(3.0, float64(imgSize)/2000.0)
-	thickness           = 1.0
-	palette             []colorful.Color
+	black           = color.RGBA{0x0, 0x0, 0x0, 0xff}
+	genPalette      = genPalette2
+	getCircleRadius = getCircleRadius1
+	getStrokeWidth  = getStrokeWidth1
+	minCircleSize   = max(3.0, float64(imgSize)/2000.0)
+	palette         []colorful.Color
+	theta           float64
+	thickness       = 1.0
+	treeNum         = 0
 )
 
 func init() {
@@ -58,6 +58,14 @@ func init() {
 	rand.Seed(seed)
 	theta = rand.Float64() * math.Pi * 2.0
 	palette = genPalette(maxDepth) // colorful.WarmPalette(maxDepth)
+}
+
+func getStrokeWidth1(r float64) float64 {
+	return 2.0
+}
+
+func getCircleRadius1(r float64) float64 {
+	return r
 }
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
@@ -68,8 +76,8 @@ func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
 		gc.Fill()
 	} else {
 		gc.SetStrokeColor(c.color)
-		gc.SetLineWidth(c.radius * strokeWidth)
-		draw2dkit.Circle(gc, c.center.x, c.center.y, c.radius*radiusDrawScale)
+		gc.SetLineWidth(getStrokeWidth(c.radius))
+		draw2dkit.Circle(gc, c.center.x, c.center.y, getCircleRadius(c.radius))
 		gc.Stroke()
 	}
 }
@@ -80,17 +88,20 @@ type GradientTable []struct {
 }
 
 func genPalette1(d int) []colorful.Color {
+	hue := rand.Float64() * 360.0
 	return []colorful.Color{
-		colorful.Color{
-			R: 0.3,
-			G: 0.4,
-			B: 0.45,
-		},
 		colorful.Color{
 			R: 1.0,
 			G: 1.0,
 			B: 1.0,
 		},
+		colorful.Hsv(hue, 0.3, 0.9),
+	}
+}
+func genPalette5(d int) []colorful.Color {
+	hue := rand.Float64() * 360.0
+	return []colorful.Color{
+		colorful.Hsv(hue, 0.7, 0.95),
 	}
 }
 func genPalette2(d int) []colorful.Color {
@@ -248,11 +259,11 @@ func (t *CircleTree) validCircle(c *Circle) bool {
 	if c.radius < minCircleSize {
 		return false
 	}
-	if distance(t.papa.center, c.center) > t.papa.radius-c.radius+2.0 {
+	if distance(t.papa.center, c.center) > t.papa.radius-c.radius+1.0 {
 		return false
 	}
 	for _, child := range t.babies {
-		if distance(child.papa.center, c.center) < c.radius+child.papa.radius-2.0 {
+		if distance(child.papa.center, c.center) < c.radius+child.papa.radius-1.0 {
 			return false
 		}
 	}
@@ -372,7 +383,6 @@ func populateTree(tree *CircleTree, depth int) bool {
 
 	// Compute radius of filling circle
 	b := papa.radius - child.radius
-	// fmt.Printf("papa.radius = %v\nchild.radius = %v\nb = %v\n", papa.radius, child.radius, b)
 	for r := b - 0.01; r >= 1.0; r -= increment {
 		shrunkPapa := Circle{
 			center: papa.center,
