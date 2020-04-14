@@ -38,6 +38,7 @@ const (
 	minRadiusRatio  = 0.55
 	increment       = 0.125 / 4.0
 	fillCircles     = false
+	jitter          = 0.4
 )
 
 var (
@@ -72,19 +73,26 @@ func getCircleRadius1(r float64) float64 {
 }
 
 func getCircleRadius2(r float64) float64 {
-	return r * 0.50
+	return r * 0.75
 }
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
+	var center = c.center
+	if jitter != 0.0 {
+		r := rand.Float64() * jitter * c.radius
+		angle := rand.Float64() * math.Pi * 2.0
+		center.x += math.Cos(angle) * r
+		center.y += math.Sin(angle) * r
+	}
 	gc.BeginPath()
 	if fillCircles {
 		gc.SetFillColor(c.color)
-		draw2dkit.Circle(gc, c.center.x, c.center.y, c.radius)
+		draw2dkit.Circle(gc, center.x, center.y, c.radius)
 		gc.Fill()
 	} else {
 		gc.SetStrokeColor(c.color)
 		gc.SetLineWidth(getStrokeWidth(c.radius))
-		draw2dkit.Circle(gc, c.center.x, c.center.y, getCircleRadius(c.radius))
+		draw2dkit.Circle(gc, center.x, center.y, getCircleRadius(c.radius))
 		gc.Stroke()
 	}
 }
