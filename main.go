@@ -31,21 +31,20 @@ const (
 	randomTheta     = true
 	randomizeColors = false
 	depthJump       = 1
-	imgSize         = 5000
+	imgSize         = 8000
 	maxDepth        = 15
 	thetaIncrement  = 0.0
 	maxRadiusRatio  = 0.85
 	minRadiusRatio  = 0.55
 	increment       = 0.125 / 4.0
-	radiusDrawScale = 0.95
 	fillCircles     = false
 )
 
 var (
 	black           = color.RGBA{0x0, 0x0, 0x0, 0xff}
 	genPalette      = genPalette2
-	getCircleRadius = getCircleRadius1
-	getStrokeWidth  = getStrokeWidth1
+	getCircleRadius = getCircleRadius2
+	getStrokeWidth  = getStrokeWidth2
 	minCircleSize   = max(3.0, float64(imgSize)/2000.0)
 	palette         []colorful.Color
 	theta           float64
@@ -64,8 +63,16 @@ func getStrokeWidth1(r float64) float64 {
 	return 2.0
 }
 
+func getStrokeWidth2(r float64) float64 {
+	return r * 0.3
+}
+
 func getCircleRadius1(r float64) float64 {
 	return r
+}
+
+func getCircleRadius2(r float64) float64 {
+	return r * 0.50
 }
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
@@ -108,10 +115,10 @@ func genPalette2(d int) []colorful.Color {
 	hue := rand.Float64() * 360.0
 	keypoints := GradientTable{
 		{colorful.Hsv(hue, 0.3, 0.9), 0.0},
-		{colorful.Hsv(hue, 0.3, 0.4), 0.3},
-		{colorful.Hsv(hue, 0.0, 1.0), 0.5},
-		{colorful.Hsv(hue, 0.3, 0.4), 0.8},
-		{colorful.Hsv(hue, 0.3, 0.0), 1.0},
+		{colorful.Hsv(hue, 0.3, 0.4), 0.25},
+		{colorful.Hsv(hue, 0.05, 1.0), 0.5},
+		{colorful.Hsv(hue, 0.3, 0.4), 0.75},
+		{colorful.Hsv(hue, 0.3, 0.05), 1.0},
 	}
 	p := make([]colorful.Color, 0, d)
 	for i := 0; i < d; i++ {
