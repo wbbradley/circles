@@ -38,25 +38,22 @@ const (
 	minRadiusRatio  = 0.55
 	increment       = 0.125 / 4.0
 	fillCircles     = false
-	jitter          = 0.4
+	jitter          = 0.0
 )
 
 var (
 	black           = color.RGBA{0x0, 0x0, 0x0, 0xff}
 	genPalette      = genPalette2
-	getCircleRadius = getCircleRadius2
-	getStrokeWidth  = getStrokeWidth2
+	getCircleRadius = getCircleRadius1
+	getStrokeWidth  = getStrokeWidth1
 	minCircleSize   = max(3.0, float64(imgSize)/2000.0)
 	palette         []colorful.Color
-	theta           float64
-	thickness       = 1.0
 	treeNum         = 0
 )
 
 func init() {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
-	theta = rand.Float64() * math.Pi * 2.0
 	palette = genPalette(maxDepth) // colorful.WarmPalette(maxDepth)
 }
 
@@ -64,16 +61,16 @@ func getStrokeWidth1(r float64) float64 {
 	return 2.0
 }
 
-func getStrokeWidth2(r float64) float64 {
-	return r * 0.3
-}
-
 func getCircleRadius1(r float64) float64 {
-	return r
+	return r - 1.0
 }
 
 func getCircleRadius2(r float64) float64 {
 	return r * 0.75
+}
+
+func getStrokeWidth2(r float64) float64 {
+	return r * 0.3
 }
 
 func drawCircle(gc *draw2dimg.GraphicContext, c *Circle) {
@@ -126,7 +123,7 @@ func genPalette2(d int) []colorful.Color {
 		{colorful.Hsv(hue, 0.3, 0.4), 0.25},
 		{colorful.Hsv(hue, 0.05, 1.0), 0.5},
 		{colorful.Hsv(hue, 0.3, 0.4), 0.75},
-		{colorful.Hsv(hue, 0.3, 0.05), 1.0},
+		{colorful.Hsv(hue, 0.2, 0.3), 1.0},
 	}
 	p := make([]colorful.Color, 0, d)
 	for i := 0; i < d; i++ {
@@ -306,7 +303,7 @@ func addCircle(tree *CircleTree, depth int) bool {
 
 	for i := 0; i < 1000; i += 1 {
 		radius := getRadius(tree.papa.radius)
-		theta = getTheta(depth)
+		theta := getTheta(depth)
 		circle := Circle{
 			center: Vector2D{
 				math.Cos(theta)*(tree.papa.radius-radius) + tree.papa.center.x,
@@ -439,7 +436,6 @@ func populateTree(tree *CircleTree, depth int) bool {
 			populateTree(newTree, depth+1)
 		}
 	}
-	theta += thetaIncrement
 	return true
 }
 
@@ -477,7 +473,7 @@ func main() {
 				x: width / 2.0,
 				y: height / 2.0,
 			},
-			radius: width/2.0 - thickness*2.0,
+			radius: width/2.0 - 2.0,
 			color:  randColor(0),
 		},
 		babies: nil,
